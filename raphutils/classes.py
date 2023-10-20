@@ -123,11 +123,15 @@ class Stat:
                    f"\n| - Dispersion: {dispersion(self.data)} {self.unit if self.unit else ''}"
                    f"\n| - Dispersion without outliers: {dispersion(self.data_no_outliers)} {self.unit if self.unit else ''}"
                    f"\n| - Standard error: {self.std / len(self.data) ** 0.5:.3f} {self.unit if self.unit else ''}")
-        message += '\n'
+        message += '\n|'
+        if self.discrete: message += self.freq()
         message += '-' * len(f"---------- {self.name} ----------")
         return message
 
     def freq(self, string=True):
+        """
+        Calculates the frequency of each modality
+        """
         dt = {}
         for data in self.data:
             if data not in dt:
@@ -136,27 +140,28 @@ class Stat:
                 dt[data] += 1
 
         if string:
-            message = f"\n--- Fréquence de {self.name} ---"
-            message += f"\n| - Nombre de données: {len(self.data)}"
+            message = f"\n| - Number of modalities: {len(self.data)}"
             for data in dt:
-                message += f"\n| - {data} : {dt[data]} fois soit {dt[data] / len(self.data) * 100:.2f}%"
+                message += f"\n| - {data} : {dt[data]} -> {dt[data] / len(self.data) * 100:.2f}%"
             message += '\n'
-            message += '-' * len(f"---- Fréquence de {self.name} ----")
         else:
             message = dt
+
         return message
 
     def plot(self):
-        if self.discrete: self.classes_plot()
-        else: self.freq_plot()
+        if self.discrete: self.freq_plot()
+        else: self.classes_plot()
         mustache_plot([self.data], [self.name])
 
     def freq_plot(self):
+        """
+        Plots the frequency of each modality
+        """
         data = self.freq(string=False)
         x = list(data.keys())
-        if self.discrete:
-            print('\u001b[31m' + 'WARNING: the data is discrete, the graph may not be accurate.'
-                  + '\033[0m')
+        if not self.discrete:
+            print('\u001b[31m' + 'WARNING: the data is continuous, the graph may not be accurate.' + '\033[0m')
 
         x.sort()
         y = [data[key] / len(self.data) * 100 for key in x]
@@ -169,6 +174,9 @@ class Stat:
         plt.show()
 
     def classes_plot(self):
+        """
+        Plots the frequency of each class
+        """
         sturges = int(1 + log(len(self.data)))  # Sturges' formula
         dt = self.data.copy()  # copy of the data to avoid modifying it
         dt.sort()  # sort the data
@@ -188,8 +196,8 @@ class Stat:
         fig, ax1 = plt.subplots()
 
         # I stole that from stackoverflow and I don't know how it works
-        N = len(x)
-        df = pd.Series(np.random.randint(10, 50, N), index=np.arange(1, N + 1))
+        # I only use it for putting pretty colors on the graph
+        df = pd.Series(np.random.randint(10, 50, len(x)), index=np.arange(1, len(x) + 1))
 
         cmap = plt.cm.tab10
         colors = cmap(np.arange(len(df)) % cmap.N)
