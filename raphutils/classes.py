@@ -3,32 +3,37 @@ from math import log
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import make_interp_spline
-from functions import mean, std, median, first_quartile, third_quartile, iqr, outliers, remove_outliers, uncertainties_formating, dispersion, mustache_plot
+from raphutils.functions import mean, std, median, first_quartile, third_quartile, iqr, outliers, remove_outliers, uncertainties_formating, dispersion, mustache_plot
 import pandas as pd
 
 
 class GrowthMonitoring:
     def __init__(self, data_name, data_list, time):
+        """
+        :param data_name: the name of the data
+        :param data_list: the list of the data
+        :param time: the list of the time
+        """
         self.name = data_name
         self.data = data_list
         self.time = np.array(time)
 
-        self.t_denombrement = [0]
+        self.µ = [0]  # growth rate
         for i in range(len(data_list) - 1):
-            d = (log(self.data[i + 1]) - log(self.data[i])) / (self.time[i + 1] - self.time[i])
+            d = (log(self.data[i + 1]) - log(self.data[i])) / (self.time[i + 1] - self.time[i])  # calculate the growth rate
             if d < 0:
                 d = 0
-            self.t_denombrement.append(d)
-        self.t_denombrement = np.array(self.t_denombrement)
+            self.µ.append(d)
+        self.µ = np.array(self.µ)  # convert the list to a numpy array
 
-        self.t_dedoublement = []
-        for i in range(len(self.t_denombrement)):
-            if self.t_denombrement[i] != 0:
-                d = log(2) / self.t_denombrement[i]
+        self.td = []  # doubling time
+        for i in range(len(self.µ)):
+            if self.µ[i] != 0:
+                d = log(2) / self.µ[i]  # calculate the doubling time
             else:
                 d = 0
-            self.t_dedoublement.append(d)
-        self.t_dedoublement = np.array(self.t_dedoublement)
+            self.td.append(d)
+        self.td = np.array(self.td)  # convert the list to a numpy array
 
     def __str__(self):
         message = f"\n---------- {self.name} ----------"
@@ -39,42 +44,54 @@ class GrowthMonitoring:
                 time = str(m)
             else:
                 time = f'{h}h{m} min'
-            message += f"\n| - {time} min: µ={self.t_denombrement[i] * 100:.3e}/min et Td={self.t_dedoublement[i]:.0f} min"
+            message += f"\n| - {time} min: µ={self.µ[i] * 100:.3e}/min et Td={self.td[i]:.0f} min"
         message += '\n'
         message += '-' * len(f"---------- {self.name} ----------")
         return message
 
-    def plot(self, smoothing=1):
+    def plot(self, smoothing=False, smoothing_val=10, title=None):
         """
         Plots the growth rate and the doubling time of the data
         :param smoothing: the smoothing factor
+        :param smoothing_val: the smoothing value
+        :param title: the title of the graph
         :return:
         """
         fig, ax1 = plt.subplots()
 
-        spline = make_interp_spline(self.time, self.t_denombrement)
-        time_ = np.linspace(self.time, self.t_denombrement, len(self.time) * smoothing)
         color = 'tab:red'
         ax1.set_xlabel('time (m)')
-        ax1.set_ylabel('min^-1', color=color)
+        ax1.set_ylabel('min⁻¹', color=color)
+        if smoothing:
+            spline = make_interp_spline(self.time, self.µ)  # create a spline
+            time_ = np.linspace(self.time, self.µ,
+                                len(self.time) * smoothing_val)  # create a list of time with the smoothing factor
 
-        ax1.plot([t[-1] for t in time_],
-                 [val[-1] for val in spline(time_)],
-                 color=color, label='µ')
+            ax1.plot([t[-1] for t in time_],
+                     [val[-1] for val in spline(time_)],
+                     color=color, label='µ')
+        else:
+            ax1.plot(self.time, self.µ, color=color, label='µ')
         ax1.tick_params(axis='y', labelcolor=color)
 
         ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
-        spline = make_interp_spline(self.time, self.t_dedoublement)
         color = 'tab:blue'
         ax2.set_ylabel('min', color=color)  # we already handled the x-label with ax1
-        ax2.plot([t[-1] for t in time_], [val[-1] for val in spline(time_)], color=color, label='Td')
         ax2.tick_params(axis='y', labelcolor=color)
+        if smoothing:
+            spline = make_interp_spline(self.time, self.td)
+            ax2.plot([t[-1] for t in time_], [val[-1] for val in spline(time_)], color=color, label='Td')
+        else:
+            ax2.plot(self.time, self.td, color=color, label='Td')
 
-        ax1.legend(loc='upper right', bbox_to_anchor=(1, 0.9))
-        ax2.legend(loc='upper right')
-        ax1.set_title(f'Évolution du taux de croissance et du temps de doublement'
-                      f'\n de {self.name.lower()} en fonction du temps')
+        if title:
+            fig.legend(loc='lower right', fancybox=True, shadow=True)
+            ax1.set_title(f'Évolution du taux de croissance et du temps de doublement'
+                          f'\n de {self.name.lower()} en fonction du temps')
+        else:
+            fig.legend(loc='upper center', bbox_to_anchor=(0.5, 1), ncol=2, fancybox=True, shadow=True)
+
         fig.tight_layout()  # otherwise the right y-label is slightly clipped
         plt.show()
 
