@@ -3,7 +3,7 @@ from math import log
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import make_interp_spline
-from raphutils.functions import mean, std, median, first_quartile, third_quartile, iqr, outliers, remove_outliers, uncertainties_formating, dispersion, mustache_plot
+from raphutils.functions import mean, std, median, first_quartile, third_quartile, iqr, outliers, remove_outliers, uncertainties_formating, dispersion, mustache_plot, units_combining
 import pandas as pd
 
 
@@ -17,6 +17,7 @@ class GrowthMonitoring:
         self.name = data_name
         self.data = data_list
         self.time = np.array(time)
+        self.package = {t: d for t, d in zip(self.time, self.data)}
 
         self.µ = [0]  # growth rate
         for i in range(len(data_list) - 1):
@@ -48,6 +49,12 @@ class GrowthMonitoring:
         message += '\n'
         message += '-' * len(f"---------- {self.name} ----------")
         return message
+
+    def __len__(self):
+        return len(self.data)
+
+    def __iter__(self):
+        return iter(self.package.items())
 
     def plot(self, smoothing=False, smoothing_val=10, title=None):
         """
@@ -97,7 +104,7 @@ class GrowthMonitoring:
 
 
 class Stat:
-    def __init__(self, data_name, data_list, unit=None, discrete=True):
+    def __init__(self, data_name, data_list, unit=None, discrete=False):
         self.name = data_name
         self.data = data_list
         self.unit = unit
@@ -127,6 +134,76 @@ class Stat:
         if self.discrete: message += self.freq()
         message += '-' * len(f"---------- {self.name} ----------")
         return message
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, item):
+        return self.data[item]
+
+    def __iter__(self):
+        return iter(self.data)
+
+    def __contains__(self, item):
+        return item in self.data
+
+    def __add__(self, other):
+        if type(other) != Stat:
+            raise TypeError(f"unsupported operand type(s) for +: 'Stat' and '{type(other)}'")
+        elif self.unit != other.unit:
+            raise ValueError(f"the units of the two data are not the same: '{self.unit}' and '{other.unit}'")
+        self.data = [x + y for x, y in zip(self.data, other.data)]
+        self.mean = mean(self.data)
+        self.std = std(self.data)
+        self.median = median(self.data)
+        self.first_quartile = first_quartile(self.data)
+        self.third_quartile = third_quartile(self.data)
+        self.iqr = iqr(self.data)
+        self.outliers = outliers(self.data)
+        self.data_no_outliers = remove_outliers(self.data)
+
+    def __sub__(self, other):
+        if type(other) != Stat:
+            raise TypeError(f"unsupported operand type(s) for -: 'Stat' and '{type(other)}'")
+        elif self.unit != other.unit:
+            raise ValueError(f"the units of the two data are not the same: '{self.unit}' and '{other.unit}'")
+        self.data = [x - y for x, y in zip(self.data, other.data)]
+        self.mean = mean(self.data)
+        self.std = std(self.data)
+        self.median = median(self.data)
+        self.first_quartile = first_quartile(self.data)
+        self.third_quartile = third_quartile(self.data)
+        self.iqr = iqr(self.data)
+        self.outliers = outliers(self.data)
+        self.data_no_outliers = remove_outliers(self.data)
+
+    def __mul__(self, other):
+        if type(other) != Stat:
+            raise TypeError(f"unsupported operand type(s) for *: 'Stat' and '{type(other)}'")
+        self.data = [x * y for x, y in zip(self.data, other.data)]
+        self.mean = mean(self.data)
+        self.std = std(self.data)
+        self.median = median(self.data)
+        self.first_quartile = first_quartile(self.data)
+        self.third_quartile = third_quartile(self.data)
+        self.iqr = iqr(self.data)
+        self.outliers = outliers(self.data)
+        self.data_no_outliers = remove_outliers(self.data)
+        self.unit = units_combining([self.unit, other.unit], '*')
+
+    def __truediv__(self, other):
+        if type(other) != Stat:
+            raise TypeError(f"unsupported operand type(s) for /: 'Stat' and '{type(other)}'")
+        self.data = [x / y for x, y in zip(self.data, other.data)]
+        self.mean = mean(self.data)
+        self.std = std(self.data)
+        self.median = median(self.data)
+        self.first_quartile = first_quartile(self.data)
+        self.third_quartile = third_quartile(self.data)
+        self.iqr = iqr(self.data)
+        self.outliers = outliers(self.data)
+        self.data_no_outliers = remove_outliers(self.data)
+        self.unit = units_combining([self.unit, other.unit], '/')
 
     def freq(self, string=True):
         """
@@ -214,6 +291,16 @@ class Stat:
 
 class Denombrement:
     def __init__(self, name, dilutions: dict):
+        """
+        Allow for the calculation of the concentration of a bacteria
+        :param name: the name of the data
+        :param dilutions: the dilutions of the data
+        dilutions = {
+            -4: None,
+            -5: 354,
+            -6: 35,
+            -7: 3}
+        """
         self.dilutions = dilutions
         self.name = name
 
