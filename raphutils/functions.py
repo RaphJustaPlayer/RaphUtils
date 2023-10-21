@@ -206,7 +206,7 @@ def uncertainties_formating(mean, std):
 
 def units_combining(units, operation):
     """
-    Combines two units together, this is black magic I'm starting to forget how it works
+    Combines two units; this is black magic I'm starting to forget how it works
     """
     if len(units) > 2: raise ValueError("Too many units")  # We can only combine two units at a time
     message = ''
@@ -245,27 +245,28 @@ def units_combining(units, operation):
     _ = units[0].copy()  # We copy the list to avoid modifying it while iterating over it
 
     if operation == '/':  # If we are dividing, we need to cancel the units
-        print(units)
         for u in _:
             if u in units[1]:
                 units[1].remove(u)
                 units[0].remove(u)
         message = '.'.join(units[0]) + '/' + '.'.join(units[1])
     else:
-        print(units)
         if len(units[0]) == 1:
             message = '.'.join(units[0])
 
         else:  # If we are multiplying, we need to cancel the units
-            for i, u in enumerate(_):
-                if i == 0:
-                    if u == units[1][i+1]:
-                        units[1].remove(u)
-                        units[0].remove(u)
-                else:
-                    if u == units[1][i-1]:
-                        units[1].remove(u)
-                        units[0].remove(u)
-            message = '.'.join(units[0]) + '/' + '.'.join(units[1])
+            if len(units) == 1:
+                message = '.'.join(units[0])
+            else:
+                for i, u in enumerate(_):
+                    if i == 0:
+                        if u == units[1][i+1]:
+                            units[1].remove(u)
+                            units[0].remove(u)
+                    else:
+                        if u == units[1][i-1]:
+                            units[1].remove(u)
+                            units[0].remove(u)
+                message = '.'.join(units[0]) + '/' + '.'.join(units[1])
     if '' in message.split('/'): message = message.split('/')[0]
     return message

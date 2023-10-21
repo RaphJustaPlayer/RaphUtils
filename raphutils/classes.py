@@ -81,7 +81,7 @@ class GrowthMonitoring:
             ax1.plot(self.time, self.µ, color=color, label='µ')
         ax1.tick_params(axis='y', labelcolor=color)
 
-        ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+        ax2 = ax1.twinx()  # instantiate second axes that share the same x-axis
 
         color = 'tab:blue'
         ax2.set_ylabel('min', color=color)  # we already handled the x-label with ax1
@@ -205,6 +205,9 @@ class Stat:
         self.data_no_outliers = remove_outliers(self.data)
         self.unit = units_combining([self.unit, other.unit], '/')
 
+    def __copy__(self):
+        return Stat(self.name, self.data.copy(), self.unit, self.discrete)
+
     def freq(self, string=True):
         """
         Calculates the frequency of each modality
@@ -289,7 +292,7 @@ class Stat:
         plt.show()
 
 
-class Denombrement:
+class Counting:
     def __init__(self, name, dilutions: dict):
         """
         Allow for the calculation of the concentration of a bacteria
@@ -305,17 +308,17 @@ class Denombrement:
         self.name = name
 
     def __str__(self):
-        message = f"\n------------- Dénombrement de {self.name} -------------"
+        message = f"\n------------- Counting of {self.name} -------------"
         for dilution in self.dilutions:
-            message += f"\n| - Dilution {10**dilution:.0e} : {self.dilutions[dilution] if self.dilutions[dilution] is not None else 'NC'} UFC"
-        m, s = self.get_ufc_per_ml()
-        message += f"\n|\n| - Concentration : {uncertainties_formating(m, s)} UFC/mL\n"
-        message += "-"*len(f"------------- Dénombrement de {self.name} -------------")
+            message += f"\n| - Dilution {10**dilution:.0e}: {self.dilutions[dilution] if self.dilutions[dilution] is not None else 'NC'} CFU"
+        m, s = self.get_cfu_per_ml()
+        message += f"\n|\n| - Concentration: {uncertainties_formating(m, s)} CFU/mL\n"
+        message += "-"*len(f"------------- Counting of {self.name} -------------")
         message = message.replace('1e', '10^')
 
         return message
 
-    def get_ufc_per_ml(self):
+    def get_cfu_per_ml(self):
         ufcs = []
         for dilution, ufc in self.dilutions.items():
             if ufc is None:
