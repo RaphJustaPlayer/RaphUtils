@@ -3,38 +3,55 @@ from math import log
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import make_interp_spline
-from raphutils.functions import mean, std, median, first_quartile, third_quartile, iqr, outliers, remove_outliers, uncertainties_formating, dispersion, mustache_plot, units_combining
 import pandas as pd
+
+from raphutils.functions import uncertainties_formating, units_combining, box_plot
 
 
 class GrowthMonitoring:
-    def __init__(self, data_name, data_list, time):
+    def __init__(self, path=None, data_name=None, data_list=None, time=None):
         """
         :param data_name: the name of the data
         :param data_list: the list of the data
         :param time: the list of the time
         """
+        self.path = path
         self.name = data_name
-        self.data = data_list
+        self.data = np.array(data_list)
         self.time = np.array(time)
+
+        if path is not None:
+            with open(path) as f:
+                dt = f.readlines()
+
+            dt = [x.replace('\n', '').split('\t') for x in dt]
+
+            try:
+                self.data = np.array([float(x[0]) for x in dt])
+                self.time = np.array([int(x[1]) for x in dt])
+                self.name = path.split('/')[-1].split('.')[0]
+            except ValueError:
+                raise ValueError('File must contain only numbers')
+
         self.package = {t: d for t, d in zip(self.time, self.data)}
 
         self.µ = [0]  # growth rate
         for i in range(len(data_list) - 1):
-            d = (log(self.data[i + 1]) - log(self.data[i])) / (self.time[i + 1] - self.time[i])  # calculate the growth rate
+            d = (log(self.data[i + 1]) - log(self.data[i])) / (
+                    self.time[i + 1] - self.time[i])  # calculate the growth rate
             if d < 0:
                 d = 0
             self.µ.append(d)
         self.µ = np.array(self.µ)  # convert the list to a numpy array
 
-        self.td = []  # doubling time
+        self.dt = []  # doubling time
         for i in range(len(self.µ)):
             if self.µ[i] != 0:
                 d = log(2) / self.µ[i]  # calculate the doubling time
             else:
                 d = 0
-            self.td.append(d)
-        self.td = np.array(self.td)  # convert the list to a numpy array
+            self.dt.append(d)
+        self.dt = np.array(self.dt)  # convert the list to a numpy array
 
     def __str__(self):
         message = f"\n---------- {self.name} ----------"
@@ -45,7 +62,7 @@ class GrowthMonitoring:
                 time = str(m)
             else:
                 time = f'{h}h{m} min'
-            message += f"\n| - {time} min: µ={self.µ[i] * 100:.3e}/min et Td={self.td[i]:.0f} min"
+            message += f"\n| - {time} min: µ={self.µ[i] * 100:.3e}/min et Td={self.dt[i]:.0f} min"
         message += '\n'
         message += '-' * len(f"---------- {self.name} ----------")
         return message
@@ -87,10 +104,10 @@ class GrowthMonitoring:
         ax2.set_ylabel('min', color=color)  # we already handled the x-label with ax1
         ax2.tick_params(axis='y', labelcolor=color)
         if smoothing:
-            spline = make_interp_spline(self.time, self.td)
+            spline = make_interp_spline(self.time, self.dt)
             ax2.plot([t[-1] for t in time_], [val[-1] for val in spline(time_)], color=color, label='Td')
         else:
-            ax2.plot(self.time, self.td, color=color, label='Td')
+            ax2.plot(self.time, self.dt, color=color, label='Td')
 
         if title:
             fig.legend(loc='lower right', fancybox=True, shadow=True)
@@ -99,37 +116,56 @@ class GrowthMonitoring:
         else:
             fig.legend(loc='upper center', bbox_to_anchor=(0.5, 1), ncol=2, fancybox=True, shadow=True)
 
-        fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        fig.tight_layout()  # otherwise, the right y-label is slightly clipped
         plt.show()
 
 
 class Stat:
-    def __init__(self, data_name, data_list, unit=None, discrete=False):
+    def __init__(self, path=None, data_name=None, data_list=None, unit=None, discrete=False):
+        """
+        :param path: the path of the file
+        :param data_name: the name of the data
+        :param data_list: the list of the data
+        :param unit: the unit of the data
+        :param discrete: if the data is discrete
+        """
+        self.path = path
         self.name = data_name
         self.data = data_list
         self.unit = unit
         self.discrete = discrete
 
-        self.mean = mean(data_list)
-        self.std = std(data_list)
-        self.median = median(data_list)
-        self.first_quartile = first_quartile(data_list)
-        self.third_quartile = third_quartile(data_list)
-        self.iqr = iqr(data_list)
-        self.outliers = outliers(data_list)
-        self.data_no_outliers = remove_outliers(data_list)
+        if path is not None:
+            with open(self.path) as f:
+                data = f.readlines()
+
+            try:
+                self.data = [float(x.replace('\n', '')) for x in data]
+                self.name = self.path.split('/')[-1].split('.')[0]
+            except ValueError:
+                raise ValueError('File must contain only numbers')
+
+        self.mean = np.mean(self.data)
+        self.std = np.std(self.data)
+        self.median = np.median(self.data)
+        self.first_quartile = np.percentile(self.data, 25)
+        self.third_quartile = np.percentile(self.data, 75)
+        self.iqr = np.percentile(self.data, 75) - np.percentile(self.data, 25)
+        self.outliers = np.array([x for x in self.data if
+                                  x < self.first_quartile - 1.5 * self.iqr or x > self.third_quartile + 1.5 * self.iqr])
+        self.data_no_outliers = np.array([x for x in self.data if x not in self.outliers])
 
     def __str__(self):
         message = (f"\n---------- {self.name} ----------"
-                   f"\n| - Value: {self.mean:.3f} ± {self.std:.3f} {self.unit if self.unit else ''}"
-                   f"\n| - Median: {self.median:.3f} {self.unit if self.unit else ''}"
-                   f"\n| - First Quartile: {self.first_quartile:.3f} {self.unit if self.unit else ''}"
-                   f"\n| - Third Quartile: {self.third_quartile:.3f} {self.unit if self.unit else ''}"
-                   f"\n| - Interquartile Range: {self.iqr:.3f} {self.unit if self.unit else ''}"
+                   f"\n| - Value: {self.mean:.3e} ± {self.std:.3e} {self.unit if self.unit else ''}"
+                   f"\n| - Median: {self.median:.3e} {self.unit if self.unit else ''}"
+                   f"\n| - First Quartile: {self.first_quartile:.3e} {self.unit if self.unit else ''}"
+                   f"\n| - Third Quartile: {self.third_quartile:.3e} {self.unit if self.unit else ''}"
+                   f"\n| - Interquartile Range: {self.iqr:.3e} {self.unit if self.unit else ''}"
                    f"\n| - Outliers: {', '.join([str(x) for x in self.outliers])}"
-                   f"\n| - Dispersion: {dispersion(self.data)} {self.unit if self.unit else ''}"
-                   f"\n| - Dispersion without outliers: {dispersion(self.data_no_outliers)} {self.unit if self.unit else ''}"
-                   f"\n| - Standard error: {self.std / len(self.data) ** 0.5:.3f} {self.unit if self.unit else ''}")
+                   f"\n| - Dispersion: {self.dispersion():.3e} {self.unit if self.unit else ''}"
+                   f"\n| - Dispersion without outliers: {self.dispersion(outliers=False):.3e} {self.unit if self.unit else ''}"
+                   f"\n| - Standard error: {self.std / len(self.data) ** 0.5:.3e} {self.unit if self.unit else ''}")
         message += '\n|'
         if self.discrete: message += self.freq()
         message += '-' * len(f"---------- {self.name} ----------")
@@ -152,58 +188,45 @@ class Stat:
             raise TypeError(f"unsupported operand type(s) for +: 'Stat' and '{type(other)}'")
         elif self.unit != other.unit:
             raise ValueError(f"the units of the two data are not the same: '{self.unit}' and '{other.unit}'")
-        self.data = [x + y for x, y in zip(self.data, other.data)]
-        self.mean = mean(self.data)
-        self.std = std(self.data)
-        self.median = median(self.data)
-        self.first_quartile = first_quartile(self.data)
-        self.third_quartile = third_quartile(self.data)
-        self.iqr = iqr(self.data)
-        self.outliers = outliers(self.data)
-        self.data_no_outliers = remove_outliers(self.data)
+        data = [x + y for x, y in zip(self.data, other.data)]
+
+        return Stat(data_name=self.name, data_list=data, unit=self.unit, discrete=self.discrete)
 
     def __sub__(self, other):
         if type(other) != Stat:
             raise TypeError(f"unsupported operand type(s) for -: 'Stat' and '{type(other)}'")
         elif self.unit != other.unit:
             raise ValueError(f"the units of the two data are not the same: '{self.unit}' and '{other.unit}'")
-        self.data = [x - y for x, y in zip(self.data, other.data)]
-        self.mean = mean(self.data)
-        self.std = std(self.data)
-        self.median = median(self.data)
-        self.first_quartile = first_quartile(self.data)
-        self.third_quartile = third_quartile(self.data)
-        self.iqr = iqr(self.data)
-        self.outliers = outliers(self.data)
-        self.data_no_outliers = remove_outliers(self.data)
+        data = [x - y for x, y in zip(self.data, other.data)]
+
+        return Stat(data_name=self.name, data_list=data, unit=self.unit, discrete=self.discrete)
 
     def __mul__(self, other):
         if type(other) != Stat:
             raise TypeError(f"unsupported operand type(s) for *: 'Stat' and '{type(other)}'")
-        self.data = [x * y for x, y in zip(self.data, other.data)]
-        self.mean = mean(self.data)
-        self.std = std(self.data)
-        self.median = median(self.data)
-        self.first_quartile = first_quartile(self.data)
-        self.third_quartile = third_quartile(self.data)
-        self.iqr = iqr(self.data)
-        self.outliers = outliers(self.data)
-        self.data_no_outliers = remove_outliers(self.data)
-        self.unit = units_combining([self.unit, other.unit], '*')
+        data = [x * y for x, y in zip(self.data, other.data)]
+        unit = units_combining([self.unit, other.unit], '*')
+
+        return Stat(data_name=f"{self.name}*{other.name}", data_list=data, unit=unit, discrete=self.discrete)
 
     def __truediv__(self, other):
         if type(other) != Stat:
             raise TypeError(f"unsupported operand type(s) for /: 'Stat' and '{type(other)}'")
-        self.data = [x / y for x, y in zip(self.data, other.data)]
-        self.mean = mean(self.data)
-        self.std = std(self.data)
-        self.median = median(self.data)
-        self.first_quartile = first_quartile(self.data)
-        self.third_quartile = third_quartile(self.data)
-        self.iqr = iqr(self.data)
-        self.outliers = outliers(self.data)
-        self.data_no_outliers = remove_outliers(self.data)
-        self.unit = units_combining([self.unit, other.unit], '/')
+        data = [x / y for x, y in zip(self.data, other.data)]
+        unit = units_combining([self.unit, other.unit], '/')
+
+        return Stat(data_name=f"{self.name}*{other.name}", data_list=data, unit=unit, discrete=self.discrete)
+
+    def dispersion(self, outliers=True):
+        """
+        Calculates the dispersion of the data
+        """
+        if outliers:
+            dt = self.data.copy()
+        else:
+            dt = self.data_no_outliers.copy()
+        dt.sort()
+        return dt[-1] - dt[0]
 
     def __copy__(self):
         return Stat(self.name, self.data.copy(), self.unit, self.discrete)
@@ -229,12 +252,14 @@ class Stat:
 
         return message
 
-    def plot(self):
-        if self.discrete: self.freq_plot()
-        else: self.classes_plot()
-        mustache_plot([self.data], [self.name])
+    def plot(self, title=False, save=False, path=None):
+        if self.discrete:
+            self.freq_plot(title=title, save=save, path=path)
+        else:
+            self.classes_plot(title=title, save=save, path=path)
+        box_plot([self.data], [self.name], title=title, save=save, path=path)
 
-    def freq_plot(self):
+    def freq_plot(self, title=False, save=False, path=None):
         """
         Plots the frequency of each modality
         """
@@ -247,35 +272,57 @@ class Stat:
         y = [data[key] / len(self.data) * 100 for key in x]
         fig, ax1 = plt.subplots()
 
-        ax1.bar(x, y)
+        bp = ax1.bar([str(name) for name in x], y)
         ax1.set_xlabel(self.unit if self.unit else 'Valeur')
-        ax1.set_ylabel('Fréquence (%)')
-        ax1.set_title(f'Fréquence des valeurs de {self.name.lower()}')
-        plt.show()
+        ax1.set_ylabel('Frequency (%)')
+        if title: ax1.set_title(f'Frequency distribution of {self.name.lower()}')
 
-    def classes_plot(self):
+        for rect in bp:
+            height = rect.get_height()
+            ax1.annotate(f'{height:.1f}%',
+                         xy=(rect.get_x() + rect.get_width() / 2, height),
+                         xytext=(0, 1),
+                         textcoords="offset points",
+                         ha='center', va='bottom')
+
+        fig.tight_layout()
+        plt.show()
+        if save:
+            if save:
+                if path is None:
+                    path = f'Frequency distribution of {self.name}.png'
+                else:
+                    path = f'{path}/Frequency distribution of {self.name}.png'
+            fig.savefig(path, dpi=600)
+
+    def classes_plot(self, title=False, save=False, path=None):
         """
         Plots the frequency of each class
         """
-        sturges = int(1 + log(len(self.data)))  # Sturges' formula
-        dt = self.data.copy()  # copy of the data to avoid modifying it
-        dt.sort()  # sort the data
-        pas = (dt[-1] - dt[0])/sturges  # calculate the step
-        y = [dt[0]+pas*i for i in range(sturges+1)]  # calculate the intervals
+        failed = 0
+        x = [0]
+        while 0 in x:  # this is done to avoid having a class with 0 values in it
+            # even sturges can be wrong sometimes... or my code is terrible, probably both!
+            x = [0]
+            sturges = int(1 + log(len(self.data)))-failed  # Sturges' formula
+            dt = self.data.copy()  # copy of the data to avoid modifying it
+            dt.sort()  # sort the data
+            pas = (dt[-1] - dt[0]) / sturges  # calculate the step
+            y = [dt[0] + pas * i for i in range(sturges + 1)]  # calculate the intervals
 
-        x = []
-        for i in range(len(y)-1):  # for each interval
-            count = 0
-            for data in dt:
-                if y[i] <= data < y[i+1]:
-                    count += 1
-            x.append(count)
-        x = [i/len(self.data)*100 for i in x]  # calculate the frequency
-        # y_mid = [(y[i]+y[i+1])/2 for i in range(len(y)-1)]
+            for i in range(len(y) - 1):  # for each interval
+                count = 0
+                for data in dt:
+                    if y[i] <= data < y[i + 1]:
+                        count += 1
+                x.append(count)
+            x = [i / len(self.data) * 100 for i in x]  # calculate the frequency
+            x.pop(0)
+            failed += 1
 
         fig, ax1 = plt.subplots()
 
-        # I stole that from stackoverflow and I don't know how it works
+        # I stole that from stackoverflow, and I don't know how it works
         # I only use it for putting pretty colors on the graph
         df = pd.Series(np.random.randint(10, 50, len(x)), index=np.arange(1, len(x) + 1))
 
@@ -283,13 +330,28 @@ class Stat:
         colors = cmap(np.arange(len(df)) % cmap.N)
         # end of the stealing
 
-        ax1.bar([f"[{y[i]:.2f}, {y[i+1]:.2f}[" for i in range(len(y)-1)],
-                x, width=1, color=colors, edgecolor='black', linewidth=1.2)
+        bp = ax1.bar([f"[{y[i]:.2f}, {y[i + 1]:.2f}[" for i in range(len(y) - 1)],
+                     x, width=1, color=colors, edgecolor='black', linewidth=1.2)
         ax1.set_xlabel(self.unit if self.unit else 'Valeur')
-        ax1.set_ylabel('Fréquence (%)')
-        ax1.set_title(f'Fréquence des valeurs de {self.name.lower()}')
+        ax1.set_ylabel('Frequency (%)')
+        if title: ax1.set_title(f'Class distribution of {self.name.lower()}')
+
+        for rect in bp:
+            height = rect.get_height()
+            ax1.annotate('{}'.format(height),
+                         xy=(rect.get_x() + rect.get_width() / 2, height),
+                         xytext=(0, 1),
+                         textcoords="offset points",
+                         ha='center', va='bottom')
+
         fig.tight_layout()
         plt.show()
+        if save:
+            if path is None:
+                path = f'Class distribution of {self.name.lower()}.png'
+            else:
+                path = f'{path}/Class distribution of {self.name.lower()}.png'
+            fig.savefig(path, dpi=600)
 
 
 class Counting:
@@ -310,10 +372,10 @@ class Counting:
     def __str__(self):
         message = f"\n------------- Counting of {self.name} -------------"
         for dilution in self.dilutions:
-            message += f"\n| - Dilution {10**dilution:.0e}: {self.dilutions[dilution] if self.dilutions[dilution] is not None else 'NC'} CFU"
+            message += f"\n| - Dilution {10 ** dilution:.0e}: {self.dilutions[dilution] if self.dilutions[dilution] is not None else 'NC'} CFU"
         m, s = self.get_cfu_per_ml()
         message += f"\n|\n| - Concentration: {uncertainties_formating(m, s)} CFU/mL\n"
-        message += "-"*len(f"------------- Counting of {self.name} -------------")
+        message += "-" * len(f"------------- Counting of {self.name} -------------")
         message = message.replace('1e', '10^')
 
         return message
@@ -326,5 +388,5 @@ class Counting:
             if ufc < 30 or ufc > 600:
                 continue
             else:
-                ufcs.append(ufc * (10**-dilution))
-        return mean(ufcs), std(ufcs)
+                ufcs.append(ufc * (10 ** -dilution))
+        return np.mean(ufcs), np.std(ufcs)

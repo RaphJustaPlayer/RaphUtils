@@ -1,5 +1,7 @@
 # RaphUtils
-My little personal toolbox for my daily work
+My little personal toolbox for my daily work. Typing this allows people to know what I'm doing and to help me if they want to.
+
+It also makes me look like a schyzophrenic person, but that's not the point.
 
 ## Installation
 First thing first, clone the repo
@@ -15,9 +17,10 @@ pip install -r requirements.txt
 ## Content
 
 It is divided in 2 files:
-: `classes.py` contains all the classes I use
 
-: `functions.py` contains all the functions I use
+`classes.py` contains all the classes I use
+
+`functions.py` contains all the functions I use (this will probably be removed soon)
 
 I'm not happy with this architecture, and I'm going to change it soon
 
@@ -36,12 +39,8 @@ You also can iterate through the data and get its length.
 You alse can plot the evolution of the growth rate and the doubling time.
 ```python
 from raphutils.classes import GrowthMonitoring
-from raphutils.functions import read_file
 
-file_name = 'Enzymatic monitoring of NH4+.txt'
-t, d = read_file('data/{}'.format(file_name))
-
-g = GrowthMonitoring(file_name[:-4], d, t)
+g = GrowthMonitoring('data/{}'.format('Enzymatic monitoring of NH4+.txt'))
 print(g)
 # ---------- Enzymatic monitoring of NH4+ ----------
 # ...
@@ -79,36 +78,59 @@ You can power, multiply, divide, add or substract two `Stat` objects!
 ```python
 from raphutils.classes import Stat
 
-s1 = Stat('test', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], unit='m', discrete=True)
-s2 = Stat('test', [11, 12, 13, 14, 15, 16, 17, 18, 19, 20], unit='s', discrete=True)
+mol = Stat('data/mols.txt', unit='mol')
+vol = Stat('data/volumes.txt', unit='ml')
+path = 'data'
 
-print(s1)
+print(mol)
 # ---------- test ----------
 # | - Value: 5.500 ± 2.872 m
 # | - Median: 5.500 m
 #...
 # --------------------------
 
-s1 + s2
+# mol + vol
 # ValueError: the units of the two data are not the same: 'm' and 's'
 # Yeah you can't add two values that don't have the same unit, you silly! 
 
-s1 * s2
+concentration = mol / vol
+concentration.name = 'Concentration'
 
-print(s1)
-# ---------- test ----------
-# | - Value: 93.500 ± 60.754 m.s
-# | - Median: 85.500 m.s
+print(concentration)
+# ---------- Concentration ----------
+# | - Value: 3.315e-02 ± 1.666e-02 mol/ml
+# | - Median: 2.889e-02 mol/ml
 # ...
-# --------------------------
-# Yup it combines units too! Sometimes it doesn't work, so check the unit of the result.
+# -----------------------------------
 
-s1.plot()
-# Will automatically choose the right plot for the data, but you can use
-# s1.freq_plot() for discrete data
-# s1.classes_plot() for continuous data
-# The plots aren't gorgeous, but they do the job. I'll improve them later.
+concentration.plot(title=True, save=True, path=path)
 ```
+![boxplot](https://github.com/RaphJustaPlayer/RaphUtils/blob/main/data/Boxplot%20of%20concentration.png?raw=true)
+![classes](https://github.com/RaphJustaPlayer/RaphUtils/blob/main/data/Class%20distribution%20of%20concentration.png?raw=true)
+
+```python
+from raphutils.classes import Stat
+import numpy as np
+
+path = 'data'
+test = Stat(data_name='test', data_list=np.random.randint(0, 5, 100), unit='m', discrete=True)
+print(test)
+# ---------- test ----------
+# | - Value: 2.020e+00 ± 1.319e+00 m
+# | - Median: 2.000e+00 m
+# ...
+# | - Number of modalities: 100
+# | - 3 : 30 -> 30.00%
+# | - 4 : 13 -> 13.00%
+# | - 0 : 19 -> 19.00%
+# | - 1 : 16 -> 16.00%
+# | - 2 : 22 -> 22.00%
+# --------------------------
+
+test.freq_plot(title=True, save=True, path=path)
+```
+![freq](https://github.com/RaphJustaPlayer/RaphUtils/blob/main/data/Frequency%20distribution%20of%20test.png?raw=true)
+
 
 ### `Counting`
 
