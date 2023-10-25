@@ -1,11 +1,11 @@
 from matplotlib import pyplot as plt
+from math import exp, factorial
 
 
 def box_plot(data, name, hide_outliers=True, vertical=True, title=False, save=False, path=None):
     name = [n.lower() for n in name]
     fig, ax1 = plt.subplots()
-    if title: title = 'Boxplot of {}'.format("\n".join(name))
-    ax1.set_title(title)
+    if title: ax1.set_title('Boxplot of {}'.format("\n".join(name)))
 
     ax1.boxplot(data, labels=name, showfliers=hide_outliers, vert=vertical)
     fig.tight_layout()
@@ -97,3 +97,28 @@ def units_combining(units, operation):
                 message = '.'.join(units[0]) + '/' + '.'.join(units[1])
     if '' in message.split('/'): message = message.split('/')[0]
     return message
+
+
+def prettify(val, r=4):
+    """
+    If there is not more than r number, then the number is given back at it is
+    Else, it returns a string of a float with r significant digits
+    """
+    if val == 0: return 0
+
+    txt = f"{val:.{r - 1}e}"
+    index = txt.split("e")[1]
+    if abs(int(index)) <= r:
+        return txt.split("e")[0]
+    else:
+        return txt
+
+
+def poisson(keys, mean):
+    """
+    Calculates the poisson distribution of the data
+    """
+    vals = {}
+    for dt in keys:
+        vals[dt] = exp(-mean) * (mean ** dt) / factorial(dt)
+    return vals

@@ -5,7 +5,7 @@ import numpy as np
 from scipy.interpolate import make_interp_spline
 import pandas as pd
 
-from raphutils.functions import uncertainties_formating, units_combining, box_plot
+from raphutils.functions import uncertainties_formating, units_combining, box_plot, prettify
 
 
 class GrowthMonitoring:
@@ -131,7 +131,7 @@ class Stat:
         """
         self.path = path
         self.name = data_name
-        self.data = data_list
+        self.data = np.array(data_list)
         self.unit = unit
         self.discrete = discrete
 
@@ -145,8 +145,13 @@ class Stat:
             except ValueError:
                 raise ValueError('File must contain only numbers')
 
-        self.mean = np.mean(self.data)
-        self.std = np.std(self.data)
+        if discrete: self.b_mean = np.mean(self.data)
+        else: self.mean = np.average(self.data, weights=[x*self.data[i] for i, x in enumerate(self.data)])
+        self.mean = sum(self.data) / (len(self.data) - 1)
+        self.b_var = np.var(self.data)
+        self.b_std = np.std(self.data)
+        self.var = (sum([(x - self.mean) ** 2 for x in self.data]) / (len(self.data) - 1))
+        self.std = self.var ** 0.5
         self.median = np.median(self.data)
         self.first_quartile = np.percentile(self.data, 25)
         self.third_quartile = np.percentile(self.data, 75)
@@ -157,15 +162,19 @@ class Stat:
 
     def __str__(self):
         message = (f"\n---------- {self.name} ----------"
-                   f"\n| - Value: {self.mean:.3e} ± {self.std:.3e} {self.unit if self.unit else ''}"
-                   f"\n| - Median: {self.median:.3e} {self.unit if self.unit else ''}"
-                   f"\n| - First Quartile: {self.first_quartile:.3e} {self.unit if self.unit else ''}"
-                   f"\n| - Third Quartile: {self.third_quartile:.3e} {self.unit if self.unit else ''}"
-                   f"\n| - Interquartile Range: {self.iqr:.3e} {self.unit if self.unit else ''}"
+                   f"\n| - Value: {prettify(self.mean)} ± {prettify(self.std)} {self.unit if self.unit else ''}"
+                   f"\n| - Biased value: {prettify(self.b_mean)} ± {prettify(self.b_std)} {self.unit if self.unit else ''}"
+                   f"\n| - Median: {prettify(self.median)} {self.unit if self.unit else ''}"
+                   f"\n| - First Quartile: {prettify(self.first_quartile)} {self.unit if self.unit else ''}"
+                   f"\n| - Third Quartile: {prettify(self.third_quartile)} {self.unit if self.unit else ''}"
+                   f"\n| - Interquartile Range: {prettify(self.iqr)} {self.unit if self.unit else ''}"
+                   f"\n| - Max acceptable value: {prettify(self.third_quartile + 1.5 * self.iqr)} {self.unit if self.unit else ''}"
+                   f"\n| - Min acceptable value: {prettify(self.first_quartile - 1.5 * self.iqr)} {self.unit if self.unit else ''}"
                    f"\n| - Outliers: {', '.join([str(x) for x in self.outliers])}"
-                   f"\n| - Dispersion: {self.dispersion():.3e} {self.unit if self.unit else ''}"
-                   f"\n| - Dispersion without outliers: {self.dispersion(outliers=False):.3e} {self.unit if self.unit else ''}"
-                   f"\n| - Standard error: {self.std / len(self.data) ** 0.5:.3e} {self.unit if self.unit else ''}")
+                   f"\n| - Extent: {prettify(self.extent())} {self.unit if self.unit else ''}"
+                   f"\n| - Extent without outliers: {prettify(self.extent(outliers=False))} {self.unit if self.unit else ''}"
+                   f"\n| - Dispersion index: {prettify(self.std**2 / self.mean)} {self.unit if self.unit else ''}"
+                   f"\n| - Standard error: {prettify(self.std / len(self.data) ** 0.5)} {self.unit if self.unit else ''}")
         message += '\n|'
         if self.discrete: message += self.freq()
         message += '-' * len(f"---------- {self.name} ----------")
@@ -217,9 +226,9 @@ class Stat:
 
         return Stat(data_name=f"{self.name}*{other.name}", data_list=data, unit=unit, discrete=self.discrete)
 
-    def dispersion(self, outliers=True):
+    def extent(self, outliers=True):
         """
-        Calculates the dispersion of the data
+        Calculates the extent of the data
         """
         if outliers:
             dt = self.data.copy()
@@ -265,22 +274,22 @@ class Stat:
         """
         data = self.freq(string=False)
         x = list(data.keys())
+        y = list(data.values())
         if not self.discrete:
             print('\u001b[31m' + 'WARNING: the data is continuous, the graph may not be accurate.' + '\033[0m')
 
         x.sort()
-        y = [data[key] / len(self.data) * 100 for key in x]
+        percentage = [data[key] / len(self.data) * 100 for key in x]
         fig, ax1 = plt.subplots()
 
         bp = ax1.bar([str(name) for name in x], y)
-        ax1.set_xlabel(self.unit if self.unit else 'Valeur')
-        ax1.set_ylabel('Frequency (%)')
-        if title: ax1.set_title(f'Frequency distribution of {self.name.lower()}')
+        ax1.set_xlabel(self.unit)
+        ax1.set_ylabel('Workforce')
+        if title: ax1.set_title(f'Workforce distribution of {self.name.lower()}')
 
-        for rect in bp:
-            height = rect.get_height()
-            ax1.annotate(f'{height:.1f}%',
-                         xy=(rect.get_x() + rect.get_width() / 2, height),
+        for i, rect in enumerate(bp):
+            ax1.annotate(f'{percentage[i]:.1f}%',
+                         xy=(rect.get_x() + rect.get_width() / 2, percentage[i]),
                          xytext=(0, 1),
                          textcoords="offset points",
                          ha='center', va='bottom')
