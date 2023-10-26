@@ -1,5 +1,7 @@
 version: 2
 
+formats: all
+
 build:
   os: ubuntu-22.04
   tools:
@@ -8,6 +10,7 @@ build:
 python:
   install:
     - requirements: requirements.txt
+    - requirements: docs/requirements.txt
 
 sphinx:
   configuration: docs/source/conf.py
