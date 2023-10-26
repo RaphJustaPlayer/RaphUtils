@@ -2,3 +2,5 @@ matplotlib
 scipy
 numpy
 pandas
+sphinx
+sphinx-rtd-theme

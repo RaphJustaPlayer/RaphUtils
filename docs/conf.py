@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'RaphUtils'
-copyright = '2023, Raphael Ribes'
-author = 'Raphael Ribes'
+copyright = '2023, Raphaël Ribes'
+author = 'Raphaël Ribes'
 release = '2023'
 
 # -- General configuration ---------------------------------------------------
@@ -17,7 +17,7 @@ release = '2023'
 extensions = []
 
 templates_path = ['_templates']
-exclude_patterns = []
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 
 
