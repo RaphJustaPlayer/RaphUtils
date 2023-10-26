@@ -5,7 +5,8 @@ import numpy as np
 from scipy.interpolate import make_interp_spline
 import pandas as pd
 
-from raphutils.functions import uncertainties_formating, units_combining, box_plot, prettify
+# import all functions of raphutils/functions.py
+from raphutils.functions import box_plot, uncertainties_formating, units_combining, prettify, biased_w_variance, unbiased_w_variance, unbiased_nw_mean, unbiased_w_mean
 
 
 class GrowthMonitoring:
@@ -134,6 +135,7 @@ class Stat:
         self.data = np.array(data_list)
         self.unit = unit
         self.discrete = discrete
+        self._freq = None
 
         if path is not None:
             with open(self.path) as f:
@@ -145,13 +147,22 @@ class Stat:
             except ValueError:
                 raise ValueError('File must contain only numbers')
 
-        if discrete: self.b_mean = np.mean(self.data)
-        else: self.mean = np.average(self.data, weights=[x*self.data[i] for i, x in enumerate(self.data)])
-        self.mean = sum(self.data) / (len(self.data) - 1)
-        self.b_var = np.var(self.data)
-        self.b_std = np.std(self.data)
-        self.var = (sum([(x - self.mean) ** 2 for x in self.data]) / (len(self.data) - 1))
-        self.std = self.var ** 0.5
+        if discrete:
+            self.nb_mean = unbiased_nw_mean(self.data)
+            self.mean = np.mean(self.data)
+            self.nb_var = np.var(self.data, ddof=1)
+            self.var = np.var(self.data)
+            self.nb_std = np.std(self.data, ddof=1)
+            self.std = np.std(self.data)
+        else:
+            self._freq = self.freq(string=False)
+            self.nb_mean = unbiased_w_mean(self.data, self._freq.keys())
+            self.mean = np.average(self.data, weights=self._freq.keys())
+            self.nb_var = unbiased_w_variance(self.data, self._freq.keys())
+            self.var = biased_w_variance(self.data, self._freq.keys())
+            self.nb_std = self.nb_var ** 0.5
+            self.std = np.std(self.data)
+
         self.median = np.median(self.data)
         self.first_quartile = np.percentile(self.data, 25)
         self.third_quartile = np.percentile(self.data, 75)
@@ -163,7 +174,7 @@ class Stat:
     def __str__(self):
         message = (f"\n---------- {self.name} ----------"
                    f"\n| - Value: {prettify(self.mean)} ± {prettify(self.std)} {self.unit if self.unit else ''}"
-                   f"\n| - Biased value: {prettify(self.b_mean)} ± {prettify(self.b_std)} {self.unit if self.unit else ''}"
+                   f"\n| - Unbiased value: {prettify(self.nb_mean)} ± {prettify(self.nb_std)} {self.unit if self.unit else ''}"
                    f"\n| - Median: {prettify(self.median)} {self.unit if self.unit else ''}"
                    f"\n| - First Quartile: {prettify(self.first_quartile)} {self.unit if self.unit else ''}"
                    f"\n| - Third Quartile: {prettify(self.third_quartile)} {self.unit if self.unit else ''}"
@@ -193,7 +204,7 @@ class Stat:
         return item in self.data
 
     def __add__(self, other):
-        if type(other) != Stat:
+        if type(other) is not Stat:
             raise TypeError(f"unsupported operand type(s) for +: 'Stat' and '{type(other)}'")
         elif self.unit != other.unit:
             raise ValueError(f"the units of the two data are not the same: '{self.unit}' and '{other.unit}'")
@@ -202,7 +213,7 @@ class Stat:
         return Stat(data_name=self.name, data_list=data, unit=self.unit, discrete=self.discrete)
 
     def __sub__(self, other):
-        if type(other) != Stat:
+        if type(other) is not Stat:
             raise TypeError(f"unsupported operand type(s) for -: 'Stat' and '{type(other)}'")
         elif self.unit != other.unit:
             raise ValueError(f"the units of the two data are not the same: '{self.unit}' and '{other.unit}'")
@@ -211,7 +222,7 @@ class Stat:
         return Stat(data_name=self.name, data_list=data, unit=self.unit, discrete=self.discrete)
 
     def __mul__(self, other):
-        if type(other) != Stat:
+        if type(other) is not Stat:
             raise TypeError(f"unsupported operand type(s) for *: 'Stat' and '{type(other)}'")
         data = [x * y for x, y in zip(self.data, other.data)]
         unit = units_combining([self.unit, other.unit], '*')
@@ -219,7 +230,7 @@ class Stat:
         return Stat(data_name=f"{self.name}*{other.name}", data_list=data, unit=unit, discrete=self.discrete)
 
     def __truediv__(self, other):
-        if type(other) != Stat:
+        if type(other) is not Stat:
             raise TypeError(f"unsupported operand type(s) for /: 'Stat' and '{type(other)}'")
         data = [x / y for x, y in zip(self.data, other.data)]
         unit = units_combining([self.unit, other.unit], '/')

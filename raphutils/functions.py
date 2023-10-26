@@ -1,5 +1,6 @@
 from matplotlib import pyplot as plt
 from math import exp, factorial
+import numpy as np
 
 
 def box_plot(data, name, hide_outliers=True, vertical=True, title=False, save=False, path=None):
@@ -99,17 +100,22 @@ def units_combining(units, operation):
     return message
 
 
-def prettify(val, r=4):
+def prettify(val, r=3):
     """
     If there is not more than r number, then the number is given back at it is
     Else, it returns a string of a float with r significant digits
     """
     if val == 0: return 0
 
-    txt = f"{val:.{r - 1}e}"
-    index = txt.split("e")[1]
-    if abs(int(index)) <= r:
-        return txt.split("e")[0]
+    txt = f"{val:.{r}e}"
+    index = abs(int(txt.split("e")[1]))
+    if index <= r:
+        msg = f"{round(val, r):.{r}f}"
+        while msg.endswith('0'):
+            msg = msg[:-1]
+        if msg.endswith('.'):
+            msg = msg[:-1]
+        return msg
     else:
         return txt
 
@@ -122,3 +128,41 @@ def poisson(keys, mean):
     for dt in keys:
         vals[dt] = exp(-mean) * (mean ** dt) / factorial(dt)
     return vals
+
+
+def unbiased_nw_variance(data):
+    """
+    Calculates the unbiased variance of the data for a non-weighted mean
+    """
+    mean = np.mean(data)
+    return sum([(x - mean) ** 2 for x in data]) / (len(data) - 1)
+
+
+def unbiased_w_variance(data, weights):
+    """
+    Calculates the unbiased variance of the data for a weighted mean
+    """
+    mean = np.average(data, weights=weights)
+    return sum([weights[i] * (x - mean) ** 2 for i, x in enumerate(data)]) / (sum(weights) - 1)
+
+
+def biased_w_variance(data, weights):
+    """
+    Calculates the biased variance of the data for a weighted mean
+    """
+    mean = np.average(data, weights=weights)
+    return sum([weights[i] * (x - mean) ** 2 for i, x in enumerate(data)]) / sum(weights)
+
+
+def unbiased_nw_mean(data):
+    """
+    Calculates the unbiased mean of the data for a non-weighted mean
+    """
+    return sum(data) / (len(data) - 1)
+
+
+def unbiased_w_mean(data, weights):
+    """
+    Calculates the unbiased mean of the data for a weighted mean
+    """
+    return sum([weights[i] * x for i, x in enumerate(data)]) / (sum(weights) - 1)
