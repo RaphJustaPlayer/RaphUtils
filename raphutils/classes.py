@@ -410,3 +410,47 @@ class Counting:
             else:
                 ufcs.append(ufc * (10 ** -dilution))
         return np.mean(ufcs), np.std(ufcs)
+
+
+class Quantify:
+    def __init__(self, name, absorption: dict, opl=1):
+        # mass of a base pair in ng
+        self._mac = {'DNA_ss': 33,
+                     'DNA_ds': 50,
+                     'RNA': 40}
+        # formatting
+        self._names = {"DNA_ss": "single-stranded DNA",
+                       "DNA_ds": "double-stranded DNA",
+                       "RNA": "RNA"}
+
+        if absorption['type'] not in self._mac:
+            raise ValueError(f"the type '{absorption['type']}' is not valid"
+                             f"\nValid types are: {', '.join(self._mac.keys())}")
+
+        self.name = name
+        self.absorption = absorption
+        self.opl = opl  # optical path length in cm
+        # the absorption dictionary is built like this:
+        # absorption = {
+        #     "type": "DNA_ss",
+        #     260: 0.1,
+        #     280: 0.2,
+        #     230: 0.3}
+        # the key is the wavelength and the value is the absorption
+
+        self.concentration = absorption[260] * self._mac[absorption['type']] / opl  # calculate the concentration
+        self.r_260_280 = absorption[260] / absorption[280]  # calculate the ratio 260/280
+        self.r_260_230 = absorption[260] / absorption[230]  # calculate the ratio 260/230
+
+    def __str__(self):
+        msg = f"\n------------- Quantification of {self.name} -------------"
+        msg += f"\n| - Concentration: {prettify(self.concentration)} ng/µL"
+        if "DNA" in self.absorption['type']: _min, _max = 1.8, 2.0  # if it's DNA, the ratio 260/280 must be between 1.8 and 2.0
+        else: _min, _max = 2.0, 2.2  # if it's RNA, the ratio 260/280 must be between 2.0 and 2.2
+        msg += f"\n| - Ratio 260/280: {prettify(self.r_260_280)}{'' if _min < self.r_260_280 < _max else ' (not pure)'}"
+        msg += f"\n| - Ratio 260/230: {prettify(self.r_260_230)}{'' if 2.0 < self.r_260_230 < 2.2 else ' (not pure)'}"
+        msg += f"\n| - Type: {self._names[self.absorption['type']]}"
+        msg += f"\n| - Mass of a base pair: {self._mac[self.absorption['type']]} ng"
+        msg += f"\n"
+        msg += "-" * len(f"------------- Quantification of {self.name} -------------")
+        return msg
