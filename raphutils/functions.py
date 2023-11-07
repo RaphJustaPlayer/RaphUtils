@@ -166,3 +166,13 @@ def unbiased_w_mean(data, weights):
     Calculates the unbiased mean of the data for a weighted mean
     """
     return sum([weights[i] * x for i, x in enumerate(data)]) / (sum(weights) - 1)
+
+
+def quantitative_confidence(var, n, u=1.96):
+    interval = u * np.sqrt(var / n)
+    return [float(prettify(var - interval)), float(prettify(var + interval))]
+
+
+def probabilistic_confidence(prob, n, u=1.96):
+    interval = u * np.sqrt(prob * (1 - prob) / n)
+    return [float(prettify(prob - interval)), float(prettify(prob + interval))]
