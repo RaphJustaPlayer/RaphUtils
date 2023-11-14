@@ -4,9 +4,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import make_interp_spline
 import pandas as pd
+import pylab
+import scipy.stats as stats
 
 # import all functions of raphutils/functions.py
-from raphutils.functions import box_plot, uncertainties_formating, units_combining, prettify, biased_w_variance, unbiased_w_variance, unbiased_nw_mean, unbiased_w_mean
+from raphutils.functions import box_plot, uncertainties_formating, units_combining, prettify, biased_w_variance, unbiased_w_variance
 
 
 class GrowthMonitoring:
@@ -147,8 +149,7 @@ class Stat:
             except ValueError:
                 raise ValueError('File must contain only numbers')
 
-        if discrete:
-            self.nb_mean = unbiased_nw_mean(self.data)
+        if not discrete:
             self.mean = np.mean(self.data)
             self.nb_var = np.var(self.data, ddof=1)
             self.var = np.var(self.data)
@@ -156,10 +157,10 @@ class Stat:
             self.std = np.std(self.data)
         else:
             self._freq = self.freq(string=False)
-            self.nb_mean = unbiased_w_mean(self.data, self._freq.keys())
-            self.mean = np.average(self.data, weights=self._freq.keys())
-            self.nb_var = unbiased_w_variance(self.data, self._freq.keys())
-            self.var = biased_w_variance(self.data, self._freq.keys())
+            print([v for v in self._freq.keys()], self.data)
+            self.mean = np.average(self.data, weights=[v for v in self._freq.values()])
+            self.nb_var = unbiased_w_variance(self.data, [v for v in self._freq.values()])
+            self.var = biased_w_variance(self.data, [v for v in self._freq.values()])
             self.nb_std = self.nb_var ** 0.5
             self.std = np.std(self.data)
 
@@ -174,7 +175,7 @@ class Stat:
     def __str__(self):
         message = (f"\n---------- {self.name} ----------"
                    f"\n| - Value: {prettify(self.mean)} ± {prettify(self.std)} {self.unit if self.unit else ''}"
-                   f"\n| - Unbiased value: {prettify(self.nb_mean)} ± {prettify(self.nb_std)} {self.unit if self.unit else ''}"
+                   f"\n| - Unbiased value: {prettify(self.mean)} ± {prettify(self.nb_std)} {self.unit if self.unit else ''}"
                    f"\n| - Median: {prettify(self.median)} {self.unit if self.unit else ''}"
                    f"\n| - First Quartile: {prettify(self.first_quartile)} {self.unit if self.unit else ''}"
                    f"\n| - Third Quartile: {prettify(self.third_quartile)} {self.unit if self.unit else ''}"
@@ -277,7 +278,14 @@ class Stat:
             self.freq_plot(title=title, save=save, path=path)
         else:
             self.classes_plot(title=title, save=save, path=path)
-        box_plot([self.data], [self.name], title=title, save=save, path=path)
+
+        fig, ax = plt.subplots()
+        stats.probplot(self.data, dist="norm", plot=ax)
+        plt.show()
+        fig.savefig('{}qqplot{}.png'.format(f'{path}/' if path is not None else '',
+                                            f'_{self.name}' if self.name is not None else ''), dpi=600)
+
+        box_plot([self.data], [self.name], title=title, save=save, path=path, unit=self.unit)
 
     def freq_plot(self, title=False, save=False, path=None):
         """
@@ -358,12 +366,12 @@ class Stat:
 
         for rect in bp:
             height = rect.get_height()
-            ax1.annotate('{}'.format(height),
+            ax1.annotate('{}'.format(prettify(height)),
                          xy=(rect.get_x() + rect.get_width() / 2, height),
                          xytext=(0, 1),
                          textcoords="offset points",
                          ha='center', va='bottom')
-
+        plt.xticks(rotation=90)
         fig.tight_layout()
         plt.show()
         if save:

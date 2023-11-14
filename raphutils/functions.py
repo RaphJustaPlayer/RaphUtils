@@ -3,20 +3,22 @@ from math import exp, factorial
 import numpy as np
 
 
-def box_plot(data, name, hide_outliers=True, vertical=True, title=False, save=False, path=None):
+def box_plot(data, name, hide_outliers=True, vertical=True, title=False, save=False, path=None, unit=None):
     name = [n.lower() for n in name]
     fig, ax1 = plt.subplots()
     if title: ax1.set_title('Boxplot of {}'.format("\n".join(name)))
 
     ax1.boxplot(data, labels=name, showfliers=hide_outliers, vert=vertical)
+    if unit is not None:
+        ax1.set_ylabel(unit)
     fig.tight_layout()
     plt.show()
 
     if save:
         if path is None:
-            path = f'Boxplot of {",".join(name)}'
+            path = f'Boxplot of {",".join(name)}'.replace("\n", ' ')
         else:
-            path = f'{path}/Boxplot of {",".join(name)}'
+            path = f'{path}/Boxplot of {",".join(name)}'.replace("\n", ' ')
         fig.savefig(path, dpi=600)
 
 
@@ -152,20 +154,6 @@ def biased_w_variance(data, weights):
     """
     mean = np.average(data, weights=weights)
     return sum([weights[i] * (x - mean) ** 2 for i, x in enumerate(data)]) / sum(weights)
-
-
-def unbiased_nw_mean(data):
-    """
-    Calculates the unbiased mean of the data for a non-weighted mean
-    """
-    return sum(data) / (len(data) - 1)
-
-
-def unbiased_w_mean(data, weights):
-    """
-    Calculates the unbiased mean of the data for a weighted mean
-    """
-    return sum([weights[i] * x for i, x in enumerate(data)]) / (sum(weights) - 1)
 
 
 def quantitative_confidence(var, n, u=1.96):
