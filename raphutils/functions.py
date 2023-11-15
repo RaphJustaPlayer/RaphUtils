@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 from math import exp, factorial
 import numpy as np
+import json
 
 
 def box_plot(data, name, hide_outliers=True, vertical=True, title=False, save=False, path=None, unit=None):
@@ -164,3 +165,31 @@ def quantitative_confidence(var, n, u=1.96):
 def probabilistic_confidence(prob, n, u=1.96):
     interval = u * np.sqrt(prob * (1 - prob) / n)
     return [float(prettify(prob - interval)), float(prettify(prob + interval))]
+
+
+def binomial_law(x, n, p):
+    return (factorial(n) / (factorial(n-x) * factorial(x))) * p**x * (1-p)**(n-x)
+
+
+def chi2(obs, theo):
+    # first we test if np_i >= 5
+    fuck_up = []
+    for i in range(len(obs)):
+        if theo[i] < 5:
+            fuck_up.append(prettify(theo[i]))
+    if len(fuck_up) > 0:
+        return f"np_i < 5 for {', '.join(fuck_up)}"
+    return sum([(obs[i] - theo[i])**2/theo[i] for i in range(len(obs))])
+
+
+def chi2_check(alpha, ddof, x2):
+    with open('data/chi2.json', 'r') as f:
+        table = json.load(f)
+
+    _alpha_range = [0.9, 0.7, 0.5, 0.3, 0.2, 0.1, 0.05, 0.02, 0.01, 0.001]
+    if alpha not in _alpha_range:
+        raise ValueError(f"alpha must be in {', '.join([str(x) for x in _alpha_range])}")
+    elif ddof not in [x for x in range(1, 31)]:
+        raise ValueError(f"ddof must be an integer between 1 and 30")
+
+    return table[str(ddof)][str(alpha)] >= x2
