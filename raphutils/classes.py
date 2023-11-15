@@ -8,7 +8,8 @@ import pylab
 import scipy.stats as stats
 
 # import all functions of raphutils/functions.py
-from raphutils.functions import box_plot, uncertainties_formating, units_combining, prettify, biased_w_variance, unbiased_w_variance
+from raphutils.functions import box_plot, uncertainties_formating, units_combining, prettify, biased_w_variance, \
+    unbiased_w_variance
 
 
 class GrowthMonitoring:
@@ -185,7 +186,7 @@ class Stat:
                    f"\n| - Outliers: {', '.join([str(x) for x in self.outliers])}"
                    f"\n| - Extent: {prettify(self.extent())} {self.unit if self.unit else ''}"
                    f"\n| - Extent without outliers: {prettify(self.extent(outliers=False))} {self.unit if self.unit else ''}"
-                   f"\n| - Dispersion index: {prettify(self.std**2 / self.mean)} {self.unit if self.unit else ''}"
+                   f"\n| - Dispersion index: {prettify(self.std ** 2 / self.mean)} {self.unit if self.unit else ''}"
                    f"\n| - Standard error: {prettify(self.std / len(self.data) ** 0.5)} {self.unit if self.unit else ''}")
         message += '\n|'
         if self.discrete: message += self.freq()
@@ -278,12 +279,13 @@ class Stat:
             self.freq_plot(title=title, save=save, path=path)
         else:
             self.classes_plot(title=title, save=save, path=path)
-
-        fig, ax = plt.subplots()
-        stats.probplot(self.data, dist="norm", plot=ax)
-        plt.show()
-        fig.savefig('{}qqplot{}.png'.format(f'{path}/' if path is not None else '',
-                                            f'_{self.name}' if self.name is not None else ''), dpi=600)
+            fig, ax = plt.subplots()
+            stats.probplot(self.data, dist="norm", plot=ax)
+            plt.show()
+            if save:
+                fig.savefig('{}qqplot{}.png'.format(f'{path}/' if path is not None else '',
+                                                    f"_{self.name}" if self.name is not None else ''),
+                            dpi=600)
 
         box_plot([self.data], [self.name], title=title, save=save, path=path, unit=self.unit)
 
@@ -332,7 +334,7 @@ class Stat:
         while 0 in x:  # this is done to avoid having a class with 0 values in it
             # even sturges can be wrong sometimes... or my code is terrible, probably both!
             x = [0]
-            sturges = int(1 + log(len(self.data)))-failed  # Sturges' formula
+            sturges = int(1 + log(len(self.data))) - failed  # Sturges' formula
             dt = self.data.copy()  # copy of the data to avoid modifying it
             dt.sort()  # sort the data
             pas = (dt[-1] - dt[0]) / sturges  # calculate the step
@@ -453,8 +455,10 @@ class Quantify:
     def __str__(self):
         msg = f"\n------------- Quantification of {self.name} -------------"
         msg += f"\n| - Concentration: {prettify(self.concentration)} ng/µL"
-        if "DNA" in self.absorption['type']: _min, _max = 1.8, 2.0  # if it's DNA, the ratio 260/280 must be between 1.8 and 2.0
-        else: _min, _max = 2.0, 2.2  # if it's RNA, the ratio 260/280 must be between 2.0 and 2.2
+        if "DNA" in self.absorption['type']:
+            _min, _max = 1.8, 2.0  # if it's DNA, the ratio 260/280 must be between 1.8 and 2.0
+        else:
+            _min, _max = 2.0, 2.2  # if it's RNA, the ratio 260/280 must be between 2.0 and 2.2
         msg += f"\n| - Ratio 260/280: {prettify(self.r_260_280)}{'' if _min < self.r_260_280 < _max else ' (not pure)'}"
         msg += f"\n| - Ratio 260/230: {prettify(self.r_260_230)}{'' if 2.0 < self.r_260_230 < 2.2 else ' (not pure)'}"
         msg += f"\n| - Type: {self._names[self.absorption['type']]}"
