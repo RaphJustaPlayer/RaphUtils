@@ -167,11 +167,11 @@ def probabilistic_confidence(prob, n, u=1.96):
     return [float(prettify(prob - interval)), float(prettify(prob + interval))]
 
 
-def binomial_law(x, n, p):
+def bernoulli_law(x, n, p):
     return (factorial(n) / (factorial(n-x) * factorial(x))) * p**x * (1-p)**(n-x)
 
 
-def chi2(obs, theo):
+def positioning_chi2(obs, theo):
     # first we test if np_i >= 5
     fuck_up = []
     for i in range(len(obs)):
@@ -193,3 +193,34 @@ def chi2_check(alpha, ddof, x2):
         raise ValueError(f"ddof must be an integer between 1 and 30")
 
     return table[str(ddof)][str(alpha)] >= x2
+
+
+def r_squared(x, y, degree):
+    # r-squared
+    p = np.poly1d(np.polyfit(x, y, degree))
+    # fit values, and mean
+    yhat = p(x)                         # or [p(z) for z in x]
+    ybar = np.sum(y)/len(y)          # or sum(y)/len(y)
+    ssreg = np.sum((yhat-ybar)**2)   # or sum([ (yihat - ybar)**2 for yihat in yhat])
+    sstot = np.sum((y - ybar)**2)    # or sum([ (yi - ybar)**2 for yi in y])
+    result = ssreg / sstot
+
+    return result
+
+
+def contingency_chi2(obs):
+    """
+    Calculates the chi2 of a set of observed and theoretical values
+    obs is a list of list of observed values
+    theo is a list of list of theoretical values
+    return the chi2 value and ddl
+    """
+    x2 = 0
+    row = [sum(obs[i]) for i in range(len(obs))]
+    col = [sum([obs[i][j] for i in range(len(obs))]) for j in range(len(obs[0]))]
+    total = sum(row)
+    theo = [[row[i] * col[j] / total for j in range(len(col))] for i in range(len(row))]
+    for i in range(len(obs)):
+        for j in range(len(obs[0])):
+            x2 += (obs[i][j] - theo[i][j])**2/theo[i][j]
+    return x2, (len(obs)-1)*(len(obs[0])-1), theo
